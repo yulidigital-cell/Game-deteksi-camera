@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MOVE & ANSWER — IPA SD</title>
+    <!-- Tailwind CSS for modern responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Fredoka and Quicksand -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+    <!-- MediaPipe Pose CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
+    <style>
+        body {
+            font-family: 'Quicksand', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .title-font {
+            font-family: 'Fredoka', cursive;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 15px rgba(234, 179, 8, 0.6)); }
+            50% { transform: scale(1.03); filter: drop-shadow(0 0 25px rgba(234, 179, 8, 0.9)); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 2s infinite ease-in-out;
+        }
+        @keyframes bounceSlow {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+        .animate-bounce-slow {
+            animation: bounceSlow 1.5s infinite ease-in-out;
+        }
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.6);
+        }
+        .dark-glass {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.4);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 h-screen w-screen overflow-hidden flex flex-col justify-between relative">
+
+    <!-- Portrait Warning Overlay -->
+    <div id="portrait-warning" class="fixed inset-0 z-50 bg-slate-950/95 flex flex-col items-center justify-center p-6 text-center hidden">
+        <div class="text-6xl mb-4 animate-bounce-slow">🔄</div>
+        <h2 class="title-font text-3xl font-bold text-amber-400 mb-2">PUTAR PERANGKATMU!</h2>
+        <p class="text-slate-300 max-w-md text-lg">Silakan putar perangkatmu ke posisi <strong>LANDSCAPE (Mendatar)</strong> untuk pengalaman bermain MOVE & ANSWER terbaik!</p>
+    </div>
+
+    <!-- Background Camera Video & Canvas -->
+    <div class="absolute inset-0 z-0 overflow-hidden bg-slate-950 flex items-center justify-center">
+        <video id="webcam-video" autoplay playsinline muted class="w-full h-full object-cover transform -scale-x-100"></video>
+        <canvas id="output-canvas" class="absolute inset-0 w-full h-full object-cover hidden pointer-events-none"></canvas>
+        <div class="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/30 to-slate-950/60 pointer-events-none"></div>
+    </div>
+
+    <!-- Main Application Container -->
+    <main id="app-container" class="relative z-10 flex-1 flex flex-col h-full w-full justify-between p-4 md:p-6 overflow-hidden">
+
+        <!-- ================= 1. HOME SCREEN ================= -->
+        <div id="screen-home" class="flex flex-col h-full justify-between items-center max-w-5xl mx-auto w-full py-2">
+            <div class="text-center mt-2">
+                <div class="inline-flex items-center gap-2 bg-amber-400/20 text-amber-300 px-4 py-1.5 rounded-full text-sm font-bold border border-amber-400/30 mb-2 animate-pulse-glow">
+                    🎮 GAME EDUKASI INTERAKTIF
+                </div>
+                <h1 class="title-font text-4xl md:text-6xl font-extrabold tracking-wide text-transparent bg-clip-text bg-gradient-to-r from-amber-300 via-yellow-200 to-emerald-300 drop-shadow-md">
+                    MOVE & ANSWER
+                </h1>
+                <p class="title-font text-lg md:text-2xl text-emerald-300 font-semibold tracking-wider mt-1">
+                    — IPA SD KELAS 4, 5, & 6 —
+                </p>
+                <blockquote class="italic text-slate-300 text-sm md:text-base mt-1 bg-slate-900/40 px-4 py-1 rounded-full inline-block border border-slate-700/50">
+                    “BERGERAK • PILIH • JAWAB • MENANG!”
+                </blockquote>
+            </div>
+
+            <div class="dark-glass rounded-3xl p-6 md:p-8 shadow-2xl max-w-2xl w-full border border-slate-700/60 my-auto">
+                <h2 class="title-font text-xl md:text-2xl text-amber-300 text-center mb-4 flex items-center justify-center gap-2">
+                    🎓 PILIH KELAS & TINGKATAN
+                </h2>
+                <div class="grid grid-cols-2 gap-3 mb-6">
+                    <button onclick="selectGrade(4)" id="btn-grade-4" class="grade-btn flex items-center justify-center gap-2 p-3 rounded-2xl font-bold transition-all border-2 border-sky-400/40 bg-sky-500/20 hover:bg-sky-500/40 text-white shadow-lg">
+                        <span class="text-2xl">📘</span> Kelas 4 SD
+                    </button>
+                    <button onclick="selectGrade(5)" id="btn-grade-5" class="grade-btn flex items-center justify-center gap-2 p-3 rounded-2xl font-bold transition-all border-2 border-emerald-400/40 bg-emerald-500/20 hover:bg-emerald-500/40 text-white shadow-lg">
+                        <span class="text-2xl">📗</span> Kelas 5 SD
+                    </button>
+                    <button onclick="selectGrade(6)" id="btn-grade-6" class="grade-btn flex items-center justify-center gap-2 p-3 rounded-2xl font-bold transition-all border-2 border-amber-400/40 bg-amber-500/20 hover:bg-amber-500/40 text-white shadow-lg">
+                        <span class="text-2xl">📙</span> Kelas 6 SD
+                    </button>
+                    <button onclick="selectGrade('mixed')" id="btn-grade-mixed" class="grade-btn flex items-center justify-center gap-2 p-3 rounded-2xl font-bold transition-all border-2 border-purple-400/40 bg-purple-500/30 hover:bg-purple-500/50 text-white shadow-lg ring-2 ring-purple-400">
+                        <span class="text-2xl">🌈</span> Campuran (4-6)
+                    </button>
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-sm font-semibold text-slate-300 mb-2 text-center">NAMA PEMAIN / KELOMPOK</label>
+                    <input type="text" id="player-name-input" value="Siswa Hebat" placeholder="Ketik nama atau kelompok..." class="w-full bg-slate-900/80 border-2 border-slate-600 rounded-xl px-4 py-3 text-center text-lg font-bold text-amber-300 focus:outline-none focus:border-amber-400">
+                </div>
+
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button onclick="startGameFlow()" class="flex-1 min-w-[200px] bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-white font-bold py-4 px-6 rounded-2xl shadow-xl title-font text-xl transition-all transform hover:scale-105 flex items-center justify-center gap-2 border-2 border-emerald-300/40">
+                        <span>▶</span> MULAI GAME
+                    </button>
+                    <button onclick="openModal('modal-camera')" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-4 px-5 rounded-2xl border border-slate-600 transition-all flex items-center gap-2">
+                        <span>📷</span> TES KAMERA
+                    </button>
+                    <button onclick="openModal('modal-howto')" class="bg-slate-800/80 hover:bg-slate-700 text-slate-200 font-bold py-4 px-5 rounded-2xl border border-slate-600 transition-all flex items-center gap-2">
+                        <span>❓</span> CARA BERMAIN
+                    </button>
+                </div>
+            </div>
+
+            <!-- Footer Privacy & Controls -->
+            <div class="text-center text-xs text-slate-400 bg-slate-950/60 px-4 py-2 rounded-full border border-slate-800 flex items-center gap-4">
+                <span>🔒 Video kamera hanya diproses lokal dan tidak direkam/disimpan.</span>
+                <button onclick="toggleVoice()" id="btn-voice-home" class="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full text-slate-200 font-semibold transition-all">🔊 SUARA: ON</button>
+                <button onclick="toggleFullscreen()" class="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full text-slate-200 font-semibold transition-all">⛶ FULLSCREEN</button>
+            </div>
+        </div>
+
+        <!-- ================= 2. GAME ARENA SCREEN ================= -->
+        <div id="screen-game" class="hidden flex-col h-full justify-between w-full relative">
+            
+            <!-- Top Header status bar -->
+            <div class="flex justify-between items-center bg-slate-900/70 backdrop-blur-md px-6 py-3 rounded-2xl border border-slate-700/60 shadow-lg z-20">
+                <div class="flex items-center gap-4">
+                    <button onclick="returnToMenu()" class="bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-xl text-sm font-bold border border-slate-600">🏠 KELUAR</button>
+                    <span id="game-grade-badge" class="bg-amber-400/20 text-amber-300 px-3 py-1 rounded-xl text-sm font-bold border border-amber-400/30">KELAS 4</span>
+                    <span id="question-counter" class="text-slate-300 font-bold text-sm">SOAL: 1 / 10</span>
+                </div>
+
+                <!-- Position Indicator Banner -->
+                <div id="position-feedback" class="bg-amber-500/30 text-amber-300 border border-amber-400/50 px-4 py-1.5 rounded-xl font-bold text-sm animate-pulse flex items-center gap-2">
+                    🟡 POSISI: TENGAH (Zona Netral)
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button onclick="toggleVoice()" id="btn-voice-game" class="bg-slate-800 hover:bg-slate-700 p-2 rounded-xl text-slate-200 font-bold">🔊 ON</button>
+                    <div class="bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 px-4 py-1.5 rounded-xl font-bold text-sm">
+                        ⭐ SKOR: <span id="current-score">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Question Card Header -->
+            <div class="mx-auto max-w-4xl w-full my-2 text-center z-20 px-4">
+                <div class="dark-glass rounded-2xl p-4 md:p-6 shadow-xl border border-slate-700/80 relative">
+                    <div id="question-topic" class="text-xs font-bold text-amber-400 uppercase tracking-widest mb-1">Materi: Bagian Tumbuhan</div>
+                    <h2 id="question-text" class="title-font text-xl md:text-3xl font-bold text-white mb-2 leading-snug">
+                        🌱 BAGIAN TUMBUHAN YANG BERFUNGSI MENYERAP AIR DARI TANAH ADALAH...
+                    </h2>
+                    
+                    <!-- Countdown & Status Banner -->
+                    <div id="countdown-box" class="hidden absolute -bottom-5 left-1/2 transform -translate-x-1/2 bg-amber-500 text-slate-950 font-extrabold px-6 py-1.5 rounded-full shadow-lg text-lg animate-bounce">
+                        ⏱️ WAKTU: <span id="countdown-num">12</span>s
+                    </div>
+                </div>
+            </div>
+
+            <!-- Split A/B transparent zones over camera -->
+            <div class="grid grid-cols-2 flex-1 gap-4 z-10 my-2 relative">
+                <!-- Vertical Divider -->
+                <div class="absolute left-1/2 top-0 bottom-0 w-1 bg-white/30 transform -translate-x-1/2 rounded-full z-10 shadow-[0_0_15px_rgba(255,255,255,0.5)]"></div>
+
+                <!-- ZONE A (Left) -->
+                <div id="zone-a" class="rounded-3xl border-4 border-sky-400/40 bg-sky-500/20 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl">
+                    <div class="flex justify-between items-start">
+                        <span class="bg-sky-500 text-white title-font text-2xl px-4 py-2 rounded-2xl shadow-md border border-sky-300">🅰️ ZONA A (KIRI)</span>
+                        <div id="marker-a" class="hidden text-3xl animate-bounce">👈 PILIHANMU</div>
+                    </div>
+                    <div class="text-center my-auto">
+                        <div id="option-a-text" class="title-font text-2xl md:text-4xl font-extrabold text-white drop-shadow-lg bg-slate-950/40 py-4 px-6 rounded-2xl border border-white/20">
+                            AKAR
+                        </div>
+                    </div>
+                    <div class="text-center text-xs font-bold text-sky-200 tracking-wider">
+                        BERDIRI DI SINI UNTUK PILIH A
+                    </div>
+                </div>
+
+                <!-- ZONE B (Right) -->
+                <div id="zone-b" class="rounded-3xl border-4 border-amber-400/40 bg-amber-500/20 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl">
+                    <div class="flex justify-between items-start">
+                        <div id="marker-b" class="hidden text-3xl animate-bounce">👉 PILIHANMU</div>
+                        <span class="bg-amber-500 text-slate-950 title-font text-2xl px-4 py-2 rounded-2xl shadow-md border border-amber-300">🅱️ ZONA B (KANAN)</span>
+                    </div>
+                    <div class="text-center my-auto">
+                        <div id="option-b-text" class="title-font text-2xl md:text-4xl font-extrabold text-white drop-shadow-lg bg-slate-950/40 py-4 px-6 rounded-2xl border border-white/20">
+                            DAUN
+                        </div>
+                    </div>
+                    <div class="text-center text-xs font-bold text-amber-200 tracking-wider">
+                        BERDIRI DI SINI UNTUK PILIH B
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Controls during Game -->
+            <div class="flex justify-between items-center bg-slate-900/70 backdrop-blur-md px-6 py-2 rounded-2xl border border-slate-700/60 z-20">
+                <div class="text-xs text-slate-300">
+                    💡 <strong>Tips:</strong> Langkah badanmu ke sisi kiri atau kanan layar kamera!
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="toggleFallbackMode()" id="btn-fallback-toggle" class="bg-purple-600/80 hover:bg-purple-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold">MODE DEMO / KLIK</button>
+                    <button onclick="skipToNext()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold">KUNCI JAWABAN ➔</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 3. RESULT FEEDBACK MODAL / SCREEN ================= -->
+        <div id="screen-result" class="hidden flex-col h-full justify-center items-center max-w-3xl mx-auto w-full py-4 z-30">
+            <div class="dark-glass rounded-3xl p-6 md:p-8 shadow-2xl w-full border border-slate-700/80 text-center animate-pulse-glow">
+                <div id="result-badge-icon" class="text-6xl mb-2">🎉</div>
+                <h2 id="result-title" class="title-font text-3xl md:text-5xl font-extrabold text-amber-400 mb-2">BENAR!</h2>
+                <div id="result-points" class="text-emerald-400 font-bold text-2xl mb-4">+10 POIN</div>
+
+                <div class="bg-slate-900/90 rounded-2xl p-5 mb-6 text-left border border-slate-700">
+                    <div class="text-sm font-bold text-amber-300 mb-1" id="correct-answer-display">✅ JAWABAN BENAR: A — AKAR</div>
+                    <p class="text-slate-200 text-sm md:text-base leading-relaxed" id="explanation-display">
+                        Akar berfungsi menyerap air dan mineral dari tanah serta membantu menopang tumbuhan.
+                    </p>
+                </div>
+
+                <div class="flex justify-center gap-4">
+                    <button onclick="nextQuestionFlow()" class="bg-gradient-to-r from-amber-500 to-yellow-600 hover:from-amber-400 hover:to-yellow-500 text-slate-950 font-extrabold py-3 px-8 rounded-2xl shadow-xl title-font text-xl transition-all transform hover:scale-105">
+                        SOAL BERIKUTNYA ➔
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= 4. FINAL SUMMARY SCREEN ================= -->
+        <div id="screen-summary" class="hidden flex-col h-full justify-between items-center max-w-4xl mx-auto w-full py-4 z-30 overflow-y-auto">
+            <div class="text-center mt-2">
+                <div class="text-5xl mb-1 animate-bounce-slow">🏆</div>
+                <h1 class="title-font text-4xl md:text-5xl font-extrabold text-amber-400">
+                    PERMAINAN SELESAI!
+                </h1>
+                <p class="text-emerald-300 font-semibold">Kerja bagus, hebat sekali! Ini hasil belajarmu.</p>
+            </div>
+
+            <div class="dark-glass rounded-3xl p-6 md:p-8 shadow-2xl max-w-xl w-full border border-slate-700/80 my-4">
+                <div class="grid grid-cols-2 gap-4 text-center mb-6">
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700">
+                        <div class="text-xs text-slate-400 uppercase font-bold">NAMA PEMAIN</div>
+                        <div id="summary-name" class="title-font text-xl text-amber-300 font-bold mt-1">Siswa</div>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700">
+                        <div class="text-xs text-slate-400 uppercase font-bold">KELAS</div>
+                        <div id="summary-grade" class="title-font text-xl text-sky-300 font-bold mt-1">Kelas 4</div>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-700 col-span-2">
+                        <div class="text-xs text-slate-400 uppercase font-bold">SKOR AKHIR</div>
+                        <div id="summary-score-text" class="title-font text-4xl text-emerald-400 font-extrabold mt-1">80 / 100</div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mb-6 text-center">
+                    <div class="bg-emerald-500/20 border border-emerald-400/40 p-3 rounded-2xl">
+                        <div class="text-xs text-emerald-300 font-bold">BENAR</div>
+                        <div id="summary-correct" class="text-2xl font-extrabold text-white">8</div>
+                    </div>
+                    <div class="bg-rose-500/20 border border-rose-400/40 p-3 rounded-2xl">
+                        <div class="text-xs text-rose-300 font-bold">SALAH</div>
+                        <div id="summary-wrong" class="text-2xl font-extrabold text-white">2</div>
+                    </div>
+                    <div class="bg-purple-500/20 border border-purple-400/40 p-3 rounded-2xl">
+                        <div class="text-xs text-purple-300 font-bold">AKURASI</div>
+                        <div id="summary-percent" class="text-2xl font-extrabold text-white">80%</div>
+                    </div>
+                </div>
+
+                <div id="summary-motivation" class="bg-amber-400/20 border border-amber-400/40 p-4 rounded-2xl text-center text-amber-200 font-bold text-base mb-6">
+                    “Hebat! Terus berlatih agar semakin mantap! 💪”
+                </div>
+
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button onclick="restartGame()" class="flex-1 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 text-white font-bold py-3 px-6 rounded-2xl shadow-xl title-font text-lg transition-all flex items-center justify-center gap-2">
+                        <span>🔄</span> MAIN LAGI
+                    </button>
+                    <button onclick="returnToMenu()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3 px-6 rounded-2xl border border-slate-600 transition-all">
+                        🏠 KEMBALI KE MENU
+                    </button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- MODAL: Camera Test -->
+    <div id="modal-camera" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="dark-glass rounded-3xl p-6 max-w-md w-full border border-slate-700 text-center">
+            <h3 class="title-font text-2xl font-bold text-amber-300 mb-2">📷 TES KAMERA & GERAKAN</h3>
+            <p class="text-slate-300 text-sm mb-4">Pastikan tubuhmu terlihat jelas oleh kamera. Bergeraklah ke kiri (Zona A) dan ke kanan (Zona B).</p>
+            <div class="bg-slate-900 rounded-2xl p-3 mb-4 border border-slate-800 text-sm">
+                <p id="camera-status-text" class="text-amber-400 font-bold">Status: Menghubungkan kamera...</p>
+            </div>
+            <button onclick="closeModal('modal-camera')" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-3 rounded-xl border border-slate-600">
+                TUTUP
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: How to Play -->
+    <div id="modal-howto" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="dark-glass rounded-3xl p-6 md:p-8 max-w-lg w-full border border-slate-700">
+            <h3 class="title-font text-2xl font-bold text-amber-300 mb-4 text-center">❓ CARA BERMAIN MOVE & ANSWER</h3>
+            <ul class="space-y-3 text-slate-200 text-sm md:text-base mb-6">
+                <li class="flex items-start gap-3">
+                    <span class="text-xl">1️⃣</span>
+                    <span><strong>Berdiri di depan kamera</strong> sehingga seluruh tubuhmu terlihat dengan jelas di layar.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span class="text-xl">2️⃣</span>
+                    <span><strong>Baca pertanyaan IPA</strong> yang muncul di bagian atas layar.</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span class="text-xl">3️⃣</span>
+                    <span><strong>Pilih Jawaban A atau B</strong> dengan cara berpindah secara fisik ke <strong>sisi kiri (Zona A)</strong> atau <strong>sisi kanan (Zona B)</strong> kamera!</span>
+                </li>
+                <li class="flex items-start gap-3">
+                    <span class="text-xl">4️⃣</span>
+                    <span>Tunggu countdown selesai (12 detik). Jawabanmu akan dikunci otomatis berdasarkan posisimu!</span>
+                </li>
+            </ul>
+            <button onclick="closeModal('modal-howto')" class="w-full bg-gradient-to-r from-emerald-500 to-green-600 text-white font-bold py-3 rounded-xl title-font text-lg shadow-lg">
+                MENGERTI, AYO BERMAIN!
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. BANCO SOAL IPA SD (Minimal 30 Soal Kelas 4, 5, 6) ---
+        const questionBank = [
+            // KELAS 4
+            {
+                question: "Bagian tumbuhan yang berfungsi menyerap air dan mineral dari tanah adalah...",
+                optionA: "Akar",
+                optionB: "Daun",
+                correctAnswer: "A",
+                explanation: "Akar menyerap air dan mineral dari tanah serta membantu menopang tumbuhan.",
+                grade: 4,
+                topic: "Bagian Tumbuhan"
+            },
+            {
+                question: "Proses pembuatan makanan pada tumbuhan hijau (fotosintesis) terjadi di bagian...",
+                optionA: "Batang",
+                optionB: "Daun",
+                correctAnswer: "B",
+                explanation: "Daun mengandung klorofil yang menangkap cahaya matahari untuk fotosintesis.",
+                grade: 4,
+                topic: "Bagian Tumbuhan"
+            },
+            {
+                question: "Hewan yang mengalami metamorfosis sempurna dalam siklus hidupnya adalah...",
+                optionA: "Kecoa",
+                optionB: "Kupu-kupu",
+                correctAnswer: "B",
+                explanation: "Kupu-kupu melalui tahap telur, ulat, kepompong, hingga kupu-kupu dewasa (sempurna).",
+                grade: 4,
+                topic: "Siklus Hidup Hewan"
+            },
+            {
+                question: "Dorongan atau tarikan yang dapat memengaruhi gerak benda disebut...",
+                optionA: "Gaya",
+                optionB: "Energi",
+                correctAnswer: "A",
+                explanation: "Gaya adalah tarikan atau dorongan yang dapat mengubah bentuk dan gerak benda.",
+                grade: 4,
+                topic: "Gaya dan Gerak"
+            },
+            {
+                question: "Sumber energi utama bagi bumi kita adalah...",
+                optionA: "Matahari",
+                optionB: "Air terjun",
+                correctAnswer: "A",
+                explanation: "Matahari adalah sumber energi panas dan cahaya terbesar di tata surya.",
+                grade: 4,
+                topic: "Energi"
+            },
+            {
+                question: "Perubahan wujud benda dari cair menjadi padat dinamakan...",
+                optionA: "Membeku",
+                optionB: "Mencair",
+                correctAnswer: "A",
+                explanation: "Membeku adalah perubahan wujud dari cair ke padat, contohnya air menjadi es.",
+                grade: 4,
+                topic: "Perubahan Wujud"
+            },
+            {
+                question: "Sumber daya alam yang tidak dapat diperbaharui contohnya adalah...",
+                optionA: "Minyak bumi",
+                optionB: "Air sungai",
+                correctAnswer: "A",
+                explanation: "Minyak bumi terbentuk jutaan tahun dan akan habis jika terus dieksploitasi.",
+                grade: 4,
+                topic: "Sumber Daya Alam"
+            },
+            {
+                question: "Hewan yang aktif mencari makan pada malam hari disebut hewan...",
+                optionA: "Diurnal",
+                optionB: "Nocturnal",
+                correctAnswer: "B",
+                explanation: "Hewan nokturnal seperti burung hantu mencari mangsa pada malam hari.",
+                grade: 4,
+                topic: "Hewan"
+            },
+            {
+                question: "Batang tumbuhan berkayu memperlancar pengangkutan air dari akar ke daun melalui jaringan...",
+                optionA: "Xilem",
+                optionB: "Floem",
+                correctAnswer: "A",
+                explanation: "Xilem berfungsi mengangkut air dan mineral dari akar ke daun.",
+                grade: 4,
+                topic: "Fungsi Batang"
+            },
+            {
+                question: "Benda yang dapat ditarik kuat oleh magnet disebut benda...",
+                optionA: "Diamagnetik",
+                optionB: "Ferromagnetik",
+                correctAnswer: "B",
+                explanation: "Benda ferromagnetik seperti besi dan baja dapat ditarik kuat oleh magnet.",
+                grade: 4,
+                topic: "Gaya Magnet"
+            },
+
+            // KELAS 5
+            {
+                question: "Alat pernapasan utama pada manusia adalah...",
+                optionA: "Paru-paru",
+                optionB: "Jantung",
+                correctAnswer: "A",
+                explanation: "Manusia bernapas menggunakan paru-paru untuk menyerap oksigen.",
+                grade: 5,
+                topic: "Sistem Pernapasan"
+            },
+            {
+                question: "Organ pencernaan manusia tempat terjadinya penyerapan sari-sari makanan adalah...",
+                optionA: "Lambung",
+                optionB: "Usus halus",
+                correctAnswer: "B",
+                explanation: "Usus halus adalah tempat penyerapan sari makanan ke dalam aliran darah.",
+                grade: 5,
+                topic: "Sistem Pencernaan"
+            },
+            {
+                question: "Hubungan timbal balik antara makhluk hidup dengan lingkungannya disebut...",
+                optionA: "Ekosistem",
+                optionB: "Habitat",
+                correctAnswer: "A",
+                explanation: "Ekosistem adalah kesatuan biotik dan abiotik yang saling berinteraksi.",
+                grade: 5,
+                topic: "Ekosistem"
+            },
+            {
+                question: "Dalam rantai makanan, tumbuhan bertindak sebagai...",
+                optionA: "Produsen",
+                optionB: "Konsumen",
+                correctAnswer: "A",
+                explanation: "Tumbuhan menghasilkan makanan sendiri sehingga disebut produsen.",
+                grade: 5,
+                topic: "Rantai Makanan"
+            },
+            {
+                question: "Peristiwa penguapan air dari permukaan bumi ke atmosfer disebut...",
+                optionA: "Presipitasi",
+                optionB: "Evaporasi",
+                correctAnswer: "B",
+                explanation: "Evaporasi adalah penguapan air laut, sungai, dan danau karena panas matahari.",
+                grade: 5,
+                topic: "Siklus Air"
+            },
+            {
+                question: "Sifat cahaya yang dapat menembus kaca bening menunjukkan bahwa cahaya...",
+                optionA: "Dapat dibiaskan",
+                optionB: "Menembus benda bening",
+                correctAnswer: "B",
+                explanation: "Cahaya dapat menembus benda bening atau transparan.",
+                grade: 5,
+                topic: "Cahaya"
+            },
+            {
+                question: "Bunyi merambat paling cepat melalui medium...",
+                optionA: "Zat padat",
+                optionB: "Gas / udara",
+                correctAnswer: "A",
+                explanation: "Partikel zat padat yang sangat rapat membuat bunyi merambat paling cepat.",
+                grade: 5,
+                topic: "Bunyi"
+            },
+            {
+                question: "Katup jantung yang memisahkan serambi kiri dan bilik kiri berfungsi menjaga...",
+                optionA: "Aliran darah bersih",
+                optionB: "Aliran darah kotor",
+                correctAnswer: "A",
+                explanation: "Jantung bagian kiri memompa darah yang kaya oksigen (darah bersih).",
+                grade: 5,
+                topic: "Organ Tubuh Manusia"
+            },
+            {
+                question: "Hewan pemakan daging dan tumbuhan (segala) disebut...",
+                optionA: "Karnivora",
+                optionB: "Omnivora",
+                correctAnswer: "B",
+                explanation: "Omnivora seperti tikus dan ayam memakan tumbuhan maupun daging.",
+                grade: 5,
+                topic: "Ekosistem"
+            },
+            {
+                question: "Proses perubahan uap air di udara menjadi titik-titik air disebut...",
+                optionA: "Kondensasi",
+                optionB: "Transpirasi",
+                correctAnswer: "A",
+                explanation: "Kondensasi membentuk awan di langit sebelum hujan turun.",
+                grade: 5,
+                topic: "Siklus Air"
+            },
+
+            // KELAS 6
+            {
+                question: "Pusat tata surya kita adalah...",
+                optionA: "Bumi",
+                optionB: "Matahari",
+                correctAnswer: "B",
+                explanation: "Matahari adalah bintang pusat tata surya yang dikelilingi planet-planet.",
+                grade: 6,
+                topic: "Tata Surya"
+            },
+            {
+                question: "Planet terbesar di dalam sistem tata surya kita adalah...",
+                optionA: "Jupiter",
+                optionB: "Saturnus",
+                correctAnswer: "A",
+                explanation: "Jupiter adalah planet raksasa gas terbesar di tata surya.",
+                grade: 6,
+                topic: "Planet"
+            },
+            {
+                question: "Benda yang menghasilkan arus listrik searah (DC) contohnya adalah...",
+                optionA: "Dinamo sepeda",
+                optionB: "Batu baterai",
+                correctAnswer: "B",
+                explanation: "Batu baterai dan akumulator menghasilkan arus listrik searah (DC).",
+                grade: 6,
+                topic: "Listrik"
+            },
+            {
+                question: "Cara membuat magnet dengan menggosokkan besi pada magnet tetap dilakukan dengan...",
+                optionA: "Satu arah secara teratur",
+                optionB: "Bolak-balik sembarangan",
+                correctAnswer: "A",
+                explanation: "Menggosok besi harus satu arah agar kutub magnet elementer searah.",
+                grade: 6,
+                topic: "Magnet"
+            },
+            {
+                question: "Hewan yang berkembang biak dengan cara melahirkan disebut hewan...",
+                optionA: "Ovipar",
+                optionB: "Vivipar",
+                correctAnswer: "B",
+                explanation: "Vivipar adalah hewan mamalia yang melahirkan anak, contohnya sapi dan kucing.",
+                grade: 6,
+                topic: "Perkembangbiakan"
+            },
+            {
+                question: "Kemampuan makhluk hidup menyesuaikan diri dengan lingkungan disebut...",
+                optionA: "Adaptasi",
+                optionB: "Evolusi",
+                correctAnswer: "A",
+                explanation: "Adaptasi adalah cara makhluk hidup bertahan hidup di habitatnya.",
+                grade: 6,
+                topic: "Adaptasi"
+            },
+            {
+                question: "Penanaman kembali hutan yang gundul disebut...",
+                optionA: "Reboisasi",
+                optionB: "Erosi",
+                correctAnswer: "A",
+                explanation: "Reboisasi mencegah tanah longsor dan melestarikan lingkungan.",
+                grade: 6,
+                topic: "Pelestarian Lingkungan"
+            },
+            {
+                question: "Penggunaan pestisida berlebihan di lahan pertanian dapat menyebabkan...",
+                optionA: "Pencemaran tanah dan air",
+                optionB: "Kesuburan tanah meningkat",
+                correctAnswer: "A",
+                explanation: "Pestisida kimia merusak ekosistem dan mencemari air tanah.",
+                grade: 6,
+                topic: "Perubahan Lingkungan"
+            },
+            {
+                question: "Planet yang dijuluki sebagai 'Bintang Kejora' dan tampak bersinar terang adalah...",
+                optionA: "Mars",
+                optionB: "Venus",
+                correctAnswer: "B",
+                explanation: "Venus memantulkan cahaya matahari dengan sangat kuat sehingga tampak terang.",
+                grade: 6,
+                topic: "Planet"
+            },
+            {
+                question: "Rangkaian listrik di mana lampu dipasang sejajar disebut rangkaian...",
+                optionA: "Seri",
+                optionB: "Paralel",
+                correctAnswer: "B",
+                explanation: "Rangkaian paralel membuat lampu tetap menyala meski salah satu padam.",
+                grade: 6,
+                topic: "Listrik"
+            }
+        ];
+
+        // --- 2. GAME STATE VARIABLES ---
+        let selectedGrade = 4;
+        let activeQuestions = [];
+        let currentQuestionIndex = 0;
+        let score = 0;
+        let correctCount = 0;
+        let wrongCount = 0;
+        let gameTimer = null;
+        let countdownTimer = null;
+        let countdownValue = 12; // Extended time for comfortable reading and moving
+        let isVoiceEnabled = true;
+        let isFallbackMode = false;
+        let poseInstance = null;
+        let cameraInstance = null;
+        let playerXNormalized = 0.5; // 0 (left) to 1 (right)
+        let currentDetectedSide = 'neutral'; // 'A', 'B', 'neutral'
+        let isAnswerLocked = false;
+        let gamePhase = 'menu'; // 'menu', 'countdown', 'answering', 'result', 'summary'
+
+        // --- 3. INITIALIZATION & MODAL CONTROLS ---
+        window.addEventListener('DOMContentLoaded', () => {
+            checkOrientation();
+            window.addEventListener('resize', checkOrientation);
+            initWebcamBackground();
+        });
+
+        function checkOrientation() {
+            const warning = document.getElementById('portrait-warning');
+            if (window.innerHeight > window.innerWidth && window.innerWidth < 768) {
+                warning.classList.remove('hidden');
+            } else {
+                warning.classList.add('hidden');
+            }
+        }
+
+        function openModal(id) {
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function closeModal(id) {
+            document.getElementById(id).classList.add('hidden');
+        }
+
+        function selectGrade(grade) {
+            selectedGrade = grade;
+            document.querySelectorAll('.grade-btn').forEach(btn => {
+                btn.classList.remove('ring-4', 'ring-amber-400', 'bg-purple-600/50');
+            });
+            event.currentTarget.classList.add('ring-4', 'ring-amber-400');
+            speakText("Kelas " + (grade === 'mixed' ? 'Campuran 4 sampai 6' : grade) + " dipilih.");
+        }
+
+        function toggleVoice() {
+            isVoiceEnabled = !isVoiceEnabled;
+            const btn1 = document.getElementById('btn-voice-home');
+            const btn2 = document.getElementById('btn-voice-game');
+            const text = isVoiceEnabled ? "🔊 SUARA: ON" : "🔇 SUARA: OFF";
+            if (btn1) btn1.innerText = text;
+            if (btn2) btn2.innerText = isVoiceEnabled ? "🔊 ON" : "🔇 OFF";
+            if (!isVoiceEnabled && 'speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function speakText(text) {
+            if (!isVoiceEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel(); // Cancel any ongoing utterances
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'id-ID';
+            utterance.rate = 0.95; // Slightly slower rate for clarity in classroom setting
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen().catch(err => {
+                    console.log("Error attempting to enable fullscreen:", err);
+                });
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        // --- 4. WEBCAM & MEDIAPIPE POSE SETUP ---
+        async function initWebcamBackground() {
+            const videoElement = document.getElementById('webcam-video');
+            const statusText = document.getElementById('camera-status-text');
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720, facingMode: 'user' } });
+                videoElement.srcObject = stream;
+                
+                if (statusText) statusText.innerText = "Status: Kamera aktif! Memuat pemindai gerakan...";
+
+                // Initialize MediaPipe Pose
+                if (typeof Pose !== 'undefined') {
+                    poseInstance = new Pose({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`
+                    });
+                    poseInstance.setOptions({
+                        modelComplexity: 1,
+                        smoothLandmarks: true,
+                        enableSegmentation: false,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+                    poseInstance.onResults(onPoseResults);
+
+                    cameraInstance = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (gamePhase === 'countdown') {
+                                await poseInstance.send({ image: videoElement });
+                            }
+                        },
+                        width: 1280,
+                        height: 720
+                    });
+                    cameraInstance.start();
+                    if (statusText) statusText.innerText = "Status: Siap! Deteksi gerakan aktif.";
+                } else {
+                    throw new Error("MediaPipe library not loaded");
+                }
+            } catch (err) {
+                console.warn("Kamera atau MediaPipe gagal:", err);
+                if (statusText) statusText.innerText = "Kamera tidak tersedia. Mode Demo/Klik diaktifkan.";
+                isFallbackMode = true;
+            }
+        }
+
+        function onPoseResults(results) {
+            if (!results.poseLandmarks || gamePhase !== 'countdown') return;
+
+            const landmark = results.poseLandmarks[11] || results.poseLandmarks[0];
+            if (landmark) {
+                playerXNormalized = 1.0 - landmark.x;
+                evaluatePlayerPosition();
+            }
+        }
+
+        function evaluatePlayerPosition() {
+            const feedbackEl = document.getElementById('position-feedback');
+            const markerA = document.getElementById('marker-a');
+            const markerB = document.getElementById('marker-b');
+            const zoneA = document.getElementById('zone-a');
+            const zoneB = document.getElementById('zone-b');
+
+            if (isFallbackMode) {
+                feedbackEl.innerText = "🎮 MODE DEMO (Gunakan Tombol / Klik)";
+                return;
+            }
+
+            if (playerXNormalized < 0.45) {
+                currentDetectedSide = 'A';
+                feedbackEl.innerText = "🔵 PILIHAN: A (Kiri)";
+                feedbackEl.className = "bg-sky-500/40 text-sky-200 border border-sky-400 px-4 py-1.5 rounded-xl font-bold text-sm animate-pulse flex items-center gap-2";
+                if(markerA) markerA.classList.remove('hidden');
+                if(markerB) markerB.classList.add('hidden');
+                if(zoneA) zoneA.style.borderColor = "#38bdf8";
+                if(zoneB) zoneB.style.borderColor = "rgba(251, 191, 36, 0.4)";
+            } else if (playerXNormalized > 0.55) {
+                currentDetectedSide = 'B';
+                feedbackEl.innerText = "🔵 PILIHAN: B (Kanan)";
+                feedbackEl.className = "bg-amber-500/40 text-amber-200 border border-amber-400 px-4 py-1.5 rounded-xl font-bold text-sm animate-pulse flex items-center gap-2";
+                if(markerA) markerA.classList.add('hidden');
+                if(markerB) markerB.classList.remove('hidden');
+                if(zoneA) zoneA.style.borderColor = "rgba(56, 189, 248, 0.4)";
+                if(zoneB) zoneB.style.borderColor = "#fbbf24";
+            } else {
+                currentDetectedSide = 'neutral';
+                feedbackEl.innerText = "🟡 POSISI: TENGAH (Zona Netral)";
+                feedbackEl.className = "bg-amber-500/30 text-amber-300 border border-amber-400/50 px-4 py-1.5 rounded-xl font-bold text-sm animate-pulse flex items-center gap-2";
+                if(markerA) markerA.classList.add('hidden');
+                if(markerB) markerB.classList.add('hidden');
+            }
+        }
+
+        function toggleFallbackMode() {
+            isFallbackMode = !isFallbackMode;
+            const btn = document.getElementById('btn-fallback-toggle');
+            if (isFallbackMode) {
+                btn.innerText = "MODE: DEMO KLIK AKTIF";
+                btn.className = "bg-emerald-600 text-white px-3 py-1.5 rounded-xl text-xs font-bold ring-2 ring-white";
+                alert("Mode Demo aktif! Anda bisa klik Zona A atau Zona B untuk simulasi jawaban.");
+            } else {
+                btn.innerText = "MODE DEMO / KLIK";
+                btn.className = "bg-purple-600/80 hover:bg-purple-500 text-white px-3 py-1.5 rounded-xl text-xs font-bold";
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('zone-a').addEventListener('click', () => {
+                if (isFallbackMode && gamePhase === 'countdown') {
+                    currentDetectedSide = 'A';
+                    lockAnswer();
+                }
+            });
+            document.getElementById('zone-b').addEventListener('click', () => {
+                if (isFallbackMode && gamePhase === 'countdown') {
+                    currentDetectedSide = 'B';
+                    lockAnswer();
+                }
+            });
+        });
+
+        // --- 5. GAME FLOW & LOGIC ---
+        function startGameFlow() {
+            const nameInput = document.getElementById('player-name-input').value.trim();
+            window.playerName = nameInput || "Siswa Hebat";
+
+            if (selectedGrade === 'mixed') {
+                activeQuestions = [...questionBank];
+            } else {
+                activeQuestions = questionBank.filter(q => q.grade === selectedGrade);
+            }
+
+            activeQuestions.sort(() => Math.random() - 0.5);
+            activeQuestions = activeQuestions.slice(0, 10);
+
+            if (activeQuestions.length === 0) {
+                activeQuestions = questionBank.slice(0, 10);
+            }
+
+            currentQuestionIndex = 0;
+            score = 0;
+            correctCount = 0;
+            wrongCount = 0;
+
+            document.getElementById('screen-home').classList.add('hidden');
+            document.getElementById('screen-summary').classList.add('hidden');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-game').classList.remove('hidden');
+            document.getElementById('screen-game').classList.add('flex');
+
+            document.getElementById('game-grade-badge').innerText = selectedGrade === 'mixed' ? 'CAMPURAN 4-6' : 'KELAS ' + selectedGrade;
+
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            gamePhase = 'countdown';
+            isAnswerLocked = false;
+            currentDetectedSide = 'neutral';
+
+            const q = activeQuestions[currentQuestionIndex];
+            document.getElementById('question-counter').innerText = `SOAL: ${currentQuestionIndex + 1} / ${activeQuestions.length}`;
+            document.getElementById('question-topic').innerText = `Materi: ${q.topic} (Kelas ${q.grade})`;
+            document.getElementById('question-text').innerText = `🌱 ${q.question}`;
+            document.getElementById('option-a-text').innerText = q.optionA;
+            document.getElementById('option-b-text').innerText = q.optionB;
+
+            const zoneA = document.getElementById('zone-a');
+            const zoneB = document.getElementById('zone-b');
+            zoneA.className = "rounded-3xl border-4 border-sky-400/40 bg-sky-500/20 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl";
+            zoneB.className = "rounded-3xl border-4 border-amber-400/40 bg-amber-500/20 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl";
+
+            document.getElementById('marker-a').classList.add('hidden');
+            document.getElementById('marker-b').classList.add('hidden');
+
+            // Speak clearly with well-paced sentence parts
+            speakText(`Pertanyaan. ${q.question}. Pilihan A, ${q.optionA}. Pilihan B, ${q.optionB}. Silakan bergerak ke jawabanmu.`);
+
+            // Reset countdown to 12 seconds for ample time
+            countdownValue = 12;
+            const countdownBox = document.getElementById('countdown-box');
+            const countdownNum = document.getElementById('countdown-num');
+            countdownBox.classList.remove('hidden');
+            countdownNum.innerText = countdownValue;
+
+            if (countdownTimer) clearInterval(countdownTimer);
+            countdownTimer = setInterval(() => {
+                countdownValue--;
+                countdownNum.innerText = countdownValue;
+                if (countdownValue <= 3 && countdownValue > 0) {
+                    speakText(countdownValue.toString());
+                }
+                if (countdownValue <= 0) {
+                    clearInterval(countdownTimer);
+                    countdownBox.classList.add('hidden');
+                    lockAnswer();
+                }
+            }, 1000);
+        }
+
+        function lockAnswer() {
+            if (isAnswerLocked) return;
+            isAnswerLocked = true;
+            gamePhase = 'locked';
+
+            if (countdownTimer) clearInterval(countdownTimer);
+            document.getElementById('countdown-box').classList.add('hidden');
+
+            const q = activeQuestions[currentQuestionIndex];
+            let playerAnswer = currentDetectedSide;
+
+            const zoneA = document.getElementById('zone-a');
+            const zoneB = document.getElementById('zone-b');
+
+            let isCorrect = false;
+
+            if (playerAnswer === 'neutral') {
+                playerAnswer = 'BELUM MEMILIH';
+            }
+
+            if (playerAnswer === q.correctAnswer) {
+                isCorrect = true;
+                score += 10;
+                correctCount++;
+                speakText("Benar! Plus sepuluh poin.");
+            } else {
+                wrongCount++;
+                speakText("Belum tepat.");
+            }
+
+            if (q.correctAnswer === 'A') {
+                zoneA.className = "rounded-3xl border-4 border-emerald-400 bg-emerald-500/40 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl";
+                if (playerAnswer === 'B') {
+                    zoneB.className = "rounded-3xl border-4 border-rose-400 bg-rose-500/40 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl";
+                }
+            } else {
+                zoneB.className = "rounded-3xl border-4 border-emerald-400 bg-emerald-500/40 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl";
+                if (playerAnswer === 'A') {
+                    zoneA.className = "rounded-3xl border-4 border-rose-400 bg-rose-500/40 backdrop-blur-[2px] flex flex-col justify-between p-6 transition-all duration-300 relative overflow-hidden shadow-2xl";
+                }
+            }
+
+            document.getElementById('current-score').innerText = score;
+
+            setTimeout(() => {
+                showResultScreen(isCorrect, q);
+            }, 1500);
+        }
+
+        function showResultScreen(isCorrect, q) {
+            gamePhase = 'result';
+            document.getElementById('screen-game').classList.remove('flex');
+            document.getElementById('screen-game').classList.add('hidden');
+
+            const screenResult = document.getElementById('screen-result');
+            screenResult.classList.remove('hidden');
+            screenResult.classList.add('flex');
+
+            const iconEl = document.getElementById('result-badge-icon');
+            const titleEl = document.getElementById('result-title');
+            const pointsEl = document.getElementById('result-points');
+            const correctDisplay = document.getElementById('correct-answer-display');
+            const explanationDisplay = document.getElementById('explanation-display');
+
+            if (isCorrect) {
+                iconEl.innerText = "🎉";
+                titleEl.innerText = "BENAR!";
+                titleEl.className = "title-font text-3xl md:text-5xl font-extrabold text-emerald-400 mb-2";
+                pointsEl.innerText = "+10 POIN";
+                pointsEl.className = "text-emerald-400 font-bold text-2xl mb-4";
+            } else {
+                iconEl.innerText = "😄";
+                titleEl.innerText = "BELUM TEPAT!";
+                titleEl.className = "title-font text-3xl md:text-5xl font-extrabold text-rose-400 mb-2";
+                pointsEl.innerText = "+0 POIN";
+                pointsEl.className = "text-rose-400 font-bold text-2xl mb-4";
+            }
+
+            const correctTextFull = q.correctAnswer === 'A' ? `A — ${q.optionA}` : `B — ${q.optionB}`;
+            correctDisplay.innerText = `✅ JAWABAN BENAR: ${correctTextFull}`;
+            explanationDisplay.innerText = `PEMBAHASAN: ${q.explanation}`;
+
+            speakText(`Jawaban benar adalah ${correctTextFull}. ${q.explanation}`);
+        }
+
+        function nextQuestionFlow() {
+            currentQuestionIndex++;
+            document.getElementById('screen-result').classList.remove('flex');
+            document.getElementById('screen-result').classList.add('hidden');
+
+            if (currentQuestionIndex < activeQuestions.length) {
+                document.getElementById('screen-game').classList.remove('hidden');
+                document.getElementById('screen-game').classList.add('flex');
+                loadQuestion();
+            } else {
+                showSummaryScreen();
+            }
+        }
+
+        function showSummaryScreen() {
+            gamePhase = 'summary';
+            document.getElementById('screen-game').classList.remove('flex');
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-result').classList.remove('flex');
+            document.getElementById('screen-result').classList.add('hidden');
+
+            const summaryScreen = document.getElementById('screen-summary');
+            summaryScreen.classList.remove('hidden');
+            summaryScreen.classList.add('flex');
+
+            const totalQ = activeQuestions.length;
+            const maxScore = totalQ * 10;
+            const percent = Math.round((score / maxScore) * 100);
+
+            document.getElementById('summary-name').innerText = window.playerName || "Siswa";
+            document.getElementById('summary-grade').innerText = selectedGrade === 'mixed' ? 'Campuran (4-6)' : `Kelas ${selectedGrade}`;
+            document.getElementById('summary-score-text').innerText = `${score} / ${maxScore}`;
+            document.getElementById('summary-correct').innerText = correctCount;
+            document.getElementById('summary-wrong').innerText = wrongCount;
+            document.getElementById('summary-percent').innerText = `${percent}%`;
+
+            let motivation = "";
+            if (percent >= 90) {
+                motivation = "“Luar biasa! Pemahaman IPAmu sangat baik! 🌟”";
+            } else if (percent >= 70) {
+                motivation = "“Hebat! Terus berlatih agar semakin mantap! 💪”";
+            } else if (percent >= 50) {
+                motivation = "“Bagus! Yuk, belajar lagi dan coba sekali lagi! 😊”";
+            } else {
+                motivation = "“Tidak apa-apa! Setiap permainan adalah kesempatan untuk belajar! 🌱”";
+            }
+
+            document.getElementById('summary-motivation').innerText = motivation;
+            speakText(`Permainan selesai. Skor akhir ${score} dari ${maxScore}. ${motivation}`);
+        }
+
+        function restartGame() {
+            startGameFlow();
+        }
+
+        function returnToMenu() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            gamePhase = 'menu';
+            document.getElementById('screen-game').classList.remove('flex');
+            document.getElementById('screen-game').classList.add('hidden');
+            document.getElementById('screen-result').classList.remove('flex');
+            document.getElementById('screen-result').classList.add('hidden');
+            document.getElementById('screen-summary').classList.remove('flex');
+            document.getElementById('screen-summary').classList.add('hidden');
+            document.getElementById('screen-home').classList.remove('hidden');
+        }
+
+        function skipToNext() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            lockAnswer();
+        }
+    </script>
+</body>
+</html>
